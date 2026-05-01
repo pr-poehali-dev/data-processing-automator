@@ -13,9 +13,23 @@ import Layout from "@/components/Layout";
 type AppState = "login" | "2fa" | "app";
 type Role = "citizen" | "employee" | "admin";
 
+// Права доступа: какие страницы доступны каждой роли
+const ACCESS: Record<Role, string[]> = {
+  citizen: ["dashboard", "applications", "new-application", "documents", "notifications"],
+  employee: ["staff-panel", "applications", "documents"],
+  admin: ["dashboard", "staff-panel", "applications", "new-application", "documents", "notifications", "user-management", "audit"],
+};
+
+// Страница по умолчанию после входа
+const HOME: Record<Role, string> = {
+  citizen: "dashboard",
+  employee: "staff-panel",
+  admin: "dashboard",
+};
+
 export default function Index() {
-  const [appState, setAppState] = useState<AppState>("app");
-  const [role, setRole] = useState<Role>("admin");
+  const [appState, setAppState] = useState<AppState>("login");
+  const [role, setRole] = useState<Role>("citizen");
   const [currentPage, setCurrentPage] = useState("dashboard");
 
   const handleLogin = (selectedRole: Role) => {
@@ -24,7 +38,7 @@ export default function Index() {
   };
 
   const handleVerify = () => {
-    setCurrentPage(role === "citizen" ? "dashboard" : role === "employee" ? "staff-panel" : "dashboard");
+    setCurrentPage(HOME[role]);
     setAppState("app");
   };
 
@@ -34,7 +48,10 @@ export default function Index() {
   };
 
   const handleNavigate = (page: string) => {
-    setCurrentPage(page);
+    // Разрешаем переход только если у роли есть доступ
+    if (ACCESS[role].includes(page)) {
+      setCurrentPage(page);
+    }
   };
 
   if (appState === "login") {
@@ -51,8 +68,11 @@ export default function Index() {
     );
   }
 
+  // Если текущая страница недоступна роли — редиректим на домашнюю
+  const page = ACCESS[role].includes(currentPage) ? currentPage : HOME[role];
+
   const renderPage = () => {
-    switch (currentPage) {
+    switch (page) {
       case "dashboard":
         return <DashboardPage onNavigate={handleNavigate} />;
       case "applications":
@@ -75,7 +95,7 @@ export default function Index() {
 
   return (
     <Layout
-      activePage={currentPage}
+      activePage={page}
       onNavigate={handleNavigate}
       role={role}
       onLogout={handleLogout}
