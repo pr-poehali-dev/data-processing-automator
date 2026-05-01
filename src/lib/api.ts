@@ -48,4 +48,8 @@ export const api = {
 
   // Типы заявлений
   getApplicationTypes: () => request('application_types', 'GET'),
+
+  // Загрузка документа (base64)
+  uploadDocument: (userId: number, filename: string, fileData: string, contentType: string) =>
+    request('upload_document', 'POST', {}, { user_id: userId, filename, file_data: fileData, content_type: contentType }),
 };

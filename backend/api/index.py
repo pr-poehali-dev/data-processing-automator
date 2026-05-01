@@ -4,7 +4,10 @@
 """
 import json
 import os
+import base64
+import mimetypes
 import psycopg2
+import boto3
 
 CORS = {
     'Access-Control-Allow-Origin': '*',
@@ -204,6 +207,42 @@ def handler(event: dict, context) -> dict:
             notifs = [dict(zip(cols, r)) for r in cur.fetchall()]
 
             return ok({'stats': stats, 'recent_applications': recent, 'notifications': notifs})
+
+        # === ЗАГРУЗКА ФАЙЛА ===
+        if action == 'upload_document' and method == 'POST':
+            user_id = int(body.get('user_id', 1))
+            filename = body.get('filename', 'file')
+            file_data_b64 = body.get('file_data', '')
+            content_type = body.get('content_type', 'application/octet-stream')
+
+            file_bytes = base64.b64decode(file_data_b64)
+            file_size_mb = round(len(file_bytes) / 1024 / 1024, 1)
+            size_label = f"{file_size_mb} МБ" if file_size_mb >= 0.1 else f"{round(len(file_bytes)/1024, 0):.0f} КБ"
+
+            s3_key = f"documents/user_{user_id}/{filename}"
+            s3 = boto3.client(
+                's3',
+                endpoint_url='https://bucket.poehali.dev',
+                aws_access_key_id=os.environ['AWS_ACCESS_KEY_ID'],
+                aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY'],
+            )
+            s3.put_object(Bucket='files', Key=s3_key, Body=file_bytes, ContentType=content_type)
+
+            ext = filename.rsplit('.', 1)[-1].upper() if '.' in filename else 'ФАЙЛ'
+            doc_type_map = {
+                'PDF': 'Документ PDF', 'JPG': 'Изображение', 'JPEG': 'Изображение',
+                'PNG': 'Изображение', 'DOC': 'Документ Word', 'DOCX': 'Документ Word',
+            }
+            doc_type = doc_type_map.get(ext, 'Документ')
+
+            cur.execute("""
+                INSERT INTO documents (name, type, size_label, status, user_id)
+                VALUES (%s, %s, %s, 'pending', %s) RETURNING id, to_char(uploaded_at,'DD.MM.YYYY') as date
+            """, (filename, doc_type, size_label, user_id))
+            row = cur.fetchone()
+            conn.commit()
+            return ok({'id': row[0], 'date': row[1], 'name': filename, 'type': doc_type,
+                       'size_label': size_label, 'status': 'pending'})
 
         return err(f'Unknown action: {action}', 404)
 
