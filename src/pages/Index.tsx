@@ -1,14 +1,86 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { useState } from "react";
+import LoginPage from "./LoginPage";
+import TwoFactorPage from "./TwoFactorPage";
+import DashboardPage from "./DashboardPage";
+import ApplicationsPage from "./ApplicationsPage";
+import NewApplicationPage from "./NewApplicationPage";
+import DocumentsPage from "./DocumentsPage";
+import NotificationsPage from "./NotificationsPage";
+import StaffPanelPage from "./StaffPanelPage";
+import UserManagementPage from "./UserManagementPage";
+import Layout from "@/components/Layout";
 
-const Index = () => {
+type AppState = "login" | "2fa" | "app";
+type Role = "citizen" | "employee" | "admin";
+
+export default function Index() {
+  const [appState, setAppState] = useState<AppState>("login");
+  const [role, setRole] = useState<Role>("citizen");
+  const [currentPage, setCurrentPage] = useState("dashboard");
+
+  const handleLogin = (selectedRole: Role) => {
+    setRole(selectedRole);
+    setAppState("2fa");
+  };
+
+  const handleVerify = () => {
+    setCurrentPage(role === "citizen" ? "dashboard" : role === "employee" ? "staff-panel" : "dashboard");
+    setAppState("app");
+  };
+
+  const handleLogout = () => {
+    setAppState("login");
+    setCurrentPage("dashboard");
+  };
+
+  const handleNavigate = (page: string) => {
+    setCurrentPage(page);
+  };
+
+  if (appState === "login") {
+    return <LoginPage onLogin={handleLogin} />;
+  }
+
+  if (appState === "2fa") {
+    return (
+      <TwoFactorPage
+        onVerify={handleVerify}
+        onBack={() => setAppState("login")}
+        method="email"
+      />
+    );
+  }
+
+  const renderPage = () => {
+    switch (currentPage) {
+      case "dashboard":
+        return <DashboardPage onNavigate={handleNavigate} />;
+      case "applications":
+        return <ApplicationsPage onNavigate={handleNavigate} />;
+      case "new-application":
+        return <NewApplicationPage onNavigate={handleNavigate} />;
+      case "documents":
+        return <DocumentsPage />;
+      case "notifications":
+        return <NotificationsPage />;
+      case "staff-panel":
+        return <StaffPanelPage />;
+      case "user-management":
+      case "audit":
+        return <UserManagementPage />;
+      default:
+        return <DashboardPage onNavigate={handleNavigate} />;
+    }
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4 color-black text-black">Добро пожаловать!</h1>
-        <p className="text-xl text-gray-600">тут будет отображаться ваш проект</p>
-      </div>
-    </div>
+    <Layout
+      activePage={currentPage}
+      onNavigate={handleNavigate}
+      role={role}
+      onLogout={handleLogout}
+    >
+      {renderPage()}
+    </Layout>
   );
-};
-
-export default Index;
+}
