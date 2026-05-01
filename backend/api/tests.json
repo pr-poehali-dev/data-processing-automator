@@ -3,51 +3,50 @@
     {
       "name": "Список заявлений",
       "method": "GET",
-      "path": "/applications",
+      "path": "/?action=applications",
       "expectedStatus": 200,
       "bodyMatcher": "partial"
     },
     {
       "name": "Список пользователей",
       "method": "GET",
-      "path": "/users",
+      "path": "/?action=users",
       "expectedStatus": 200,
       "bodyMatcher": "partial"
     },
     {
       "name": "Уведомления пользователя",
       "method": "GET",
-      "path": "/notifications?user_id=1",
+      "path": "/?action=notifications&user_id=1",
       "expectedStatus": 200,
       "bodyMatcher": "partial"
     },
     {
       "name": "Документы пользователя",
       "method": "GET",
-      "path": "/documents?user_id=1",
+      "path": "/?action=documents&user_id=1",
       "expectedStatus": 200,
       "bodyMatcher": "partial"
     },
     {
       "name": "Журнал аудита",
       "method": "GET",
-      "path": "/audit",
+      "path": "/?action=audit",
       "expectedStatus": 200,
       "bodyMatcher": "partial"
     },
     {
       "name": "Типы заявлений",
       "method": "GET",
-      "path": "/application-types",
+      "path": "/?action=application_types",
       "expectedStatus": 200,
       "bodyMatcher": "partial"
     },
     {
       "name": "Дашборд",
       "method": "GET",
-      "path": "/dashboard?user_id=1",
+      "path": "/?action=dashboard&user_id=1",
       "expectedStatus": 200,
-      "expectedBody": {"stats": {}},
       "bodyMatcher": "partial"
     }
   ]

@@ -1,5 +1,6 @@
 """
 Главный API для ГосПортала: заявления, документы, уведомления, пользователи, аудит.
+Роутинг через query-параметр ?action=
 """
 import json
 import os
@@ -25,8 +26,8 @@ def handler(event: dict, context) -> dict:
         return {'statusCode': 200, 'headers': CORS, 'body': ''}
 
     method = event.get('httpMethod', 'GET')
-    path = event.get('path', '/')
     params = event.get('queryStringParameters') or {}
+    action = params.get('action', '')
     body = {}
     if event.get('body'):
         try:
@@ -39,7 +40,7 @@ def handler(event: dict, context) -> dict:
 
     try:
         # === ЗАЯВЛЕНИЯ ===
-        if path == '/applications' and method == 'GET':
+        if action == 'applications' and method == 'GET':
             user_id = params.get('user_id')
             status = params.get('status')
             query = """
@@ -47,8 +48,7 @@ def handler(event: dict, context) -> dict:
                        to_char(submitted_at,'DD.MM.YYYY') as date,
                        to_char(updated_at,'DD.MM.YYYY') as updated,
                        status, urgency, comment
-                FROM applications
-                WHERE 1=1
+                FROM applications WHERE 1=1
             """
             args = []
             if user_id:
@@ -61,12 +61,12 @@ def handler(event: dict, context) -> dict:
             cur.execute(query, args)
             cols = [d[0] for d in cur.description]
             rows = [dict(zip(cols, r)) for r in cur.fetchall()]
-            status_labels = {'new':'Новое','review':'На рассмотрении','approved':'Одобрено','rejected':'Отклонено','done':'Исполнено'}
+            labels = {'new':'Новое','review':'На рассмотрении','approved':'Одобрено','rejected':'Отклонено','done':'Исполнено'}
             for r in rows:
-                r['statusLabel'] = status_labels.get(r['status'], r['status'])
+                r['statusLabel'] = labels.get(r['status'], r['status'])
             return ok(rows)
 
-        if path == '/applications' and method == 'POST':
+        if action == 'applications' and method == 'POST':
             cur.execute("SELECT COUNT(*) FROM applications")
             count = cur.fetchone()[0]
             new_id = f"ЗАЯ-2026-{count + 1:05d}"
@@ -80,8 +80,8 @@ def handler(event: dict, context) -> dict:
             conn.commit()
             return ok({'id': new_id, 'message': 'Заявление подано'})
 
-        if path.startswith('/applications/') and method == 'PUT':
-            app_id = path.split('/')[-1]
+        if action == 'update_application' and method == 'POST':
+            app_id = body.get('id')
             new_status = body.get('status')
             comment = body.get('comment', '')
             cur.execute("""
@@ -93,8 +93,8 @@ def handler(event: dict, context) -> dict:
             return ok({'message': 'Статус обновлён'})
 
         # === ДОКУМЕНТЫ ===
-        if path == '/documents' and method == 'GET':
-            user_id = params.get('user_id', 1)
+        if action == 'documents' and method == 'GET':
+            user_id = params.get('user_id', '1')
             cur.execute("""
                 SELECT id, name, type, size_label,
                        to_char(uploaded_at,'DD.MM.YYYY') as date,
@@ -106,34 +106,31 @@ def handler(event: dict, context) -> dict:
             return ok(rows)
 
         # === УВЕДОМЛЕНИЯ ===
-        if path == '/notifications' and method == 'GET':
-            user_id = params.get('user_id', 1)
+        if action == 'notifications' and method == 'GET':
+            user_id = params.get('user_id', '1')
             cur.execute("""
                 SELECT id, title, body, type, read,
-                       created_at
+                       to_char(created_at,'DD.MM.YYYY HH24:MI') as time
                 FROM notifications WHERE user_id=%s ORDER BY created_at DESC
             """, (int(user_id),))
             cols = [d[0] for d in cur.description]
             rows = [dict(zip(cols, r)) for r in cur.fetchall()]
-            for r in rows:
-                ts = r['created_at']
-                r['time'] = ts.strftime('%d.%m.%Y %H:%M') if ts else ''
             return ok(rows)
 
-        if path.startswith('/notifications/') and method == 'PUT':
-            notif_id = path.split('/')[-1]
+        if action == 'read_notification' and method == 'POST':
+            notif_id = body.get('id')
             cur.execute("UPDATE notifications SET read=true WHERE id=%s", (int(notif_id),))
             conn.commit()
             return ok({'message': 'Отмечено прочитанным'})
 
-        if path == '/notifications/read-all' and method == 'PUT':
+        if action == 'read_all_notifications' and method == 'POST':
             user_id = body.get('user_id', 1)
             cur.execute("UPDATE notifications SET read=true WHERE user_id=%s", (int(user_id),))
             conn.commit()
             return ok({'message': 'Все прочитаны'})
 
         # === ПОЛЬЗОВАТЕЛИ ===
-        if path == '/users' and method == 'GET':
+        if action == 'users' and method == 'GET':
             cur.execute("""
                 SELECT id, name, email, role, status,
                        to_char(registered_at,'DD.MM.YYYY') as registered,
@@ -144,13 +141,13 @@ def handler(event: dict, context) -> dict:
             rows = [dict(zip(cols, r)) for r in cur.fetchall()]
             return ok(rows)
 
-        if path.startswith('/users/') and method == 'PUT':
-            user_id = path.split('/')[-1]
+        if action == 'update_user' and method == 'POST':
+            user_id = body.get('id')
             new_status = body.get('status')
             new_role = body.get('role')
             if new_status:
                 cur.execute("UPDATE users SET status=%s WHERE id=%s", (new_status, int(user_id)))
-                cur.execute("INSERT INTO audit_log (user_name, action, details) VALUES (%s, %s, %s)",
+                cur.execute("INSERT INTO audit_log (user_name, action, details) VALUES (%s,%s,%s)",
                             ('Администратор', 'Изменение статуса пользователя', f'user_id={user_id} → {new_status}'))
             if new_role:
                 cur.execute("UPDATE users SET role=%s WHERE id=%s", (new_role, int(user_id)))
@@ -158,7 +155,7 @@ def handler(event: dict, context) -> dict:
             return ok({'message': 'Обновлено'})
 
         # === АУДИТ ===
-        if path == '/audit' and method == 'GET':
+        if action == 'audit' and method == 'GET':
             cur.execute("""
                 SELECT id, user_name, action, details,
                        to_char(created_at,'DD.MM.YYYY HH24:MI') as time
@@ -168,15 +165,15 @@ def handler(event: dict, context) -> dict:
             rows = [dict(zip(cols, r)) for r in cur.fetchall()]
             return ok(rows)
 
-        # === СПРАВОЧНИК ТИПОВ ===
-        if path == '/application-types' and method == 'GET':
+        # === ТИПЫ ЗАЯВЛЕНИЙ ===
+        if action == 'application_types' and method == 'GET':
             cur.execute("SELECT name FROM application_types ORDER BY id")
             rows = [r[0] for r in cur.fetchall()]
             return ok(rows)
 
         # === ДАШБОРД ===
-        if path == '/dashboard' and method == 'GET':
-            user_id = params.get('user_id', 1)
+        if action == 'dashboard' and method == 'GET':
+            user_id = params.get('user_id', '1')
             cur.execute("""
                 SELECT
                     COUNT(*) as total,
@@ -195,9 +192,9 @@ def handler(event: dict, context) -> dict:
             """, (int(user_id),))
             cols = [d[0] for d in cur.description]
             recent = [dict(zip(cols, r)) for r in cur.fetchall()]
-            status_labels = {'new':'Новое','review':'На рассмотрении','approved':'Одобрено','rejected':'Отклонено','done':'Исполнено'}
+            labels = {'new':'Новое','review':'На рассмотрении','approved':'Одобрено','rejected':'Отклонено','done':'Исполнено'}
             for r in recent:
-                r['statusLabel'] = status_labels.get(r['status'], r['status'])
+                r['statusLabel'] = labels.get(r['status'], r['status'])
 
             cur.execute("""
                 SELECT id, title, type, read, to_char(created_at,'DD.MM.YYYY HH24:MI') as time
@@ -208,7 +205,7 @@ def handler(event: dict, context) -> dict:
 
             return ok({'stats': stats, 'recent_applications': recent, 'notifications': notifs})
 
-        return err('Not found', 404)
+        return err(f'Unknown action: {action}', 404)
 
     finally:
         cur.close()

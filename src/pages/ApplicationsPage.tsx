@@ -1,24 +1,36 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Icon from "@/components/ui/icon";
+import { api } from "@/lib/api";
 
-const applications = [
-  { id: "ЗАЯ-2026-00345", type: "Справка о регистрации по месту жительства", date: "28.04.2026", updated: "30.04.2026", status: "approved", statusLabel: "Одобрено", priority: "normal" },
-  { id: "ЗАЯ-2026-00312", type: "Выписка из Единого государственного реестра", date: "15.04.2026", updated: "25.04.2026", status: "review", statusLabel: "На рассмотрении", priority: "high" },
-  { id: "ЗАЯ-2026-00289", type: "Замена удостоверяющего документа", date: "02.04.2026", updated: "20.04.2026", status: "done", statusLabel: "Исполнено", priority: "normal" },
-  { id: "ЗАЯ-2026-00201", type: "Справка об отсутствии судимости", date: "10.03.2026", updated: "18.03.2026", status: "rejected", statusLabel: "Отклонено", priority: "normal" },
-  { id: "ЗАЯ-2026-00178", type: "Регистрация транспортного средства", date: "01.03.2026", updated: "15.03.2026", status: "done", statusLabel: "Исполнено", priority: "low" },
-];
+interface Application {
+  id: string;
+  type: string;
+  date: string;
+  updated: string;
+  status: string;
+  statusLabel: string;
+  urgency: string;
+  citizen_name?: string;
+  comment?: string;
+}
 
 const statusFilters = ["Все", "На рассмотрении", "Одобрено", "Отклонено", "Исполнено"];
 
 export default function ApplicationsPage({ onNavigate }: { onNavigate: (page: string) => void }) {
+  const [applications, setApplications] = useState<Application[]>([]);
+  const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState("Все");
   const [search, setSearch] = useState("");
-  const [selectedApp, setSelectedApp] = useState<typeof applications[0] | null>(null);
+  const [selectedApp, setSelectedApp] = useState<Application | null>(null);
+
+  useEffect(() => {
+    api.getApplications({ user_id: 1 }).then(setApplications).finally(() => setLoading(false));
+  }, []);
 
   const filtered = applications.filter((a) => {
     const matchFilter = activeFilter === "Все" || a.statusLabel === activeFilter;
-    const matchSearch = a.id.toLowerCase().includes(search.toLowerCase()) ||
+    const matchSearch =
+      a.id.toLowerCase().includes(search.toLowerCase()) ||
       a.type.toLowerCase().includes(search.toLowerCase());
     return matchFilter && matchSearch;
   });
@@ -82,35 +94,46 @@ export default function ApplicationsPage({ onNavigate }: { onNavigate: (page: st
             </tr>
           </thead>
           <tbody>
-            {filtered.map((app) => (
-              <tr key={app.id}>
-                <td>
-                  <span className="font-mono text-sm font-semibold text-[hsl(var(--primary))]">{app.id}</span>
-                </td>
-                <td className="max-w-[220px]">
-                  <span className="text-sm">{app.type}</span>
-                </td>
-                <td className="text-muted-foreground">{app.date}</td>
-                <td className="text-muted-foreground">{app.updated}</td>
-                <td>
-                  <span className={`status-${app.status} text-xs font-medium px-2.5 py-1 rounded-full`}>
-                    {app.statusLabel}
-                  </span>
-                </td>
-                <td>
-                  <button
-                    onClick={() => setSelectedApp(app)}
-                    className="text-[hsl(var(--gov-blue-light))] hover:underline text-xs flex items-center gap-1"
-                  >
-                    <Icon name="Eye" size={14} />
-                    Подробнее
-                  </button>
-                </td>
-              </tr>
-            ))}
+            {loading
+              ? Array.from({ length: 4 }).map((_, i) => (
+                  <tr key={i}>
+                    <td><div className="h-4 w-36 bg-gray-200 rounded animate-pulse" /></td>
+                    <td><div className="h-4 w-48 bg-gray-200 rounded animate-pulse" /></td>
+                    <td><div className="h-4 w-20 bg-gray-200 rounded animate-pulse" /></td>
+                    <td><div className="h-4 w-20 bg-gray-200 rounded animate-pulse" /></td>
+                    <td><div className="h-5 w-24 bg-gray-200 rounded-full animate-pulse" /></td>
+                    <td><div className="h-4 w-16 bg-gray-200 rounded animate-pulse" /></td>
+                  </tr>
+                ))
+              : filtered.map((app) => (
+                  <tr key={app.id}>
+                    <td>
+                      <span className="font-mono text-sm font-semibold text-[hsl(var(--primary))]">{app.id}</span>
+                    </td>
+                    <td className="max-w-[220px]">
+                      <span className="text-sm">{app.type}</span>
+                    </td>
+                    <td className="text-muted-foreground">{app.date}</td>
+                    <td className="text-muted-foreground">{app.updated}</td>
+                    <td>
+                      <span className={`status-${app.status} text-xs font-medium px-2.5 py-1 rounded-full`}>
+                        {app.statusLabel}
+                      </span>
+                    </td>
+                    <td>
+                      <button
+                        onClick={() => setSelectedApp(app)}
+                        className="text-[hsl(var(--gov-blue-light))] hover:underline text-xs flex items-center gap-1"
+                      >
+                        <Icon name="Eye" size={14} />
+                        Подробнее
+                      </button>
+                    </td>
+                  </tr>
+                ))}
           </tbody>
         </table>
-        {filtered.length === 0 && (
+        {!loading && filtered.length === 0 && (
           <div className="py-12 text-center text-muted-foreground">
             <Icon name="FileSearch" size={36} className="mx-auto mb-2 opacity-40" />
             <p>Заявления не найдены</p>
@@ -120,8 +143,14 @@ export default function ApplicationsPage({ onNavigate }: { onNavigate: (page: st
 
       {/* Детали заявления */}
       {selectedApp && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setSelectedApp(null)}>
-          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6 animate-scale-in" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
+          onClick={() => setSelectedApp(null)}
+        >
+          <div
+            className="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6 animate-scale-in"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-bold text-lg">Детали заявления</h3>
               <button onClick={() => setSelectedApp(null)} className="p-1 rounded hover:bg-secondary transition">
@@ -159,13 +188,17 @@ export default function ApplicationsPage({ onNavigate }: { onNavigate: (page: st
               <div className="flex items-center gap-0">
                 {["Подано", "Принято", "Рассмотрение", "Решение"].map((step, i) => (
                   <div key={step} className="flex items-center flex-1 last:flex-none">
-                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
-                      i <= 2 ? "bg-[hsl(var(--primary))] text-white" : "bg-gray-200 text-gray-400"
-                    }`}>
+                    <div
+                      className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
+                        i <= 2 ? "bg-[hsl(var(--primary))] text-white" : "bg-gray-200 text-gray-400"
+                      }`}
+                    >
                       {i <= 2 ? <Icon name="Check" size={12} /> : i + 1}
                     </div>
                     <div className="text-[10px] text-center mx-1 hidden sm:block">{step}</div>
-                    {i < 3 && <div className={`flex-1 h-0.5 ${i < 2 ? "bg-[hsl(var(--primary))]" : "bg-gray-200"}`} />}
+                    {i < 3 && (
+                      <div className={`flex-1 h-0.5 ${i < 2 ? "bg-[hsl(var(--primary))]" : "bg-gray-200"}`} />
+                    )}
                   </div>
                 ))}
               </div>

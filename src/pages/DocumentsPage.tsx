@@ -1,13 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Icon from "@/components/ui/icon";
+import { api } from "@/lib/api";
 
-const documents = [
-  { id: 1, name: "Паспорт РФ (стр. 2-3)", type: "Удостоверение личности", size: "1.2 МБ", date: "28.04.2026", status: "verified" },
-  { id: 2, name: "Справка о регистрации", type: "Справка", size: "0.8 МБ", date: "25.04.2026", status: "verified" },
-  { id: 3, name: "СНИЛС", type: "Страховое свидетельство", size: "0.4 МБ", date: "15.04.2026", status: "pending" },
-  { id: 4, name: "Заявление № ЗАЯ-2026-00312", type: "Заявление", size: "0.2 МБ", date: "15.04.2026", status: "attached" },
-  { id: 5, name: "Водительское удостоверение", type: "Удостоверение", size: "1.6 МБ", date: "01.03.2026", status: "verified" },
-];
+interface Document {
+  id: number;
+  name: string;
+  type: string;
+  size_label: string;
+  date: string;
+  status: string;
+}
 
 const statusMap: Record<string, { label: string; className: string; icon: string }> = {
   verified: { label: "Проверен", className: "bg-green-100 text-green-700", icon: "ShieldCheck" },
@@ -16,7 +18,13 @@ const statusMap: Record<string, { label: string; className: string; icon: string
 };
 
 export default function DocumentsPage() {
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [loading, setLoading] = useState(true);
   const [dragging, setDragging] = useState(false);
+
+  useEffect(() => {
+    api.getDocuments(1).then((data) => setDocuments(data)).finally(() => setLoading(false));
+  }, []);
 
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-5">
@@ -49,19 +57,29 @@ export default function DocumentsPage() {
 
       {/* Статистика хранилища */}
       <div className="grid grid-cols-3 gap-4 animate-fade-in delay-200">
-        {[
-          { label: "Всего документов", value: "5", icon: "Files", color: "text-[hsl(var(--primary))]" },
-          { label: "Проверено", value: "3", icon: "ShieldCheck", color: "text-green-600" },
-          { label: "Занято места", value: "4.2 МБ", icon: "HardDrive", color: "text-amber-600" },
-        ].map((stat) => (
-          <div key={stat.label} className="bg-white rounded-xl border border-border p-4 flex items-center gap-3 shadow-sm">
-            <Icon name={stat.icon} size={20} className={stat.color} />
-            <div>
-              <div className="font-bold text-lg leading-tight">{stat.value}</div>
-              <div className="text-xs text-muted-foreground">{stat.label}</div>
-            </div>
-          </div>
-        ))}
+        {loading
+          ? Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="bg-white rounded-xl border border-border p-4 flex items-center gap-3 shadow-sm">
+                <div className="w-8 h-8 bg-gray-200 rounded-full animate-pulse" />
+                <div className="space-y-1.5">
+                  <div className="h-5 w-8 bg-gray-200 rounded animate-pulse" />
+                  <div className="h-3 w-24 bg-gray-200 rounded animate-pulse" />
+                </div>
+              </div>
+            ))
+          : [
+              { label: "Всего документов", value: String(documents.length), icon: "Files", color: "text-[hsl(var(--primary))]" },
+              { label: "Проверено", value: String(documents.filter((d) => d.status === "verified").length), icon: "ShieldCheck", color: "text-green-600" },
+              { label: "Занято места", value: "— МБ", icon: "HardDrive", color: "text-amber-600" },
+            ].map((stat) => (
+              <div key={stat.label} className="bg-white rounded-xl border border-border p-4 flex items-center gap-3 shadow-sm">
+                <Icon name={stat.icon} size={20} className={stat.color} />
+                <div>
+                  <div className="font-bold text-lg leading-tight">{stat.value}</div>
+                  <div className="text-xs text-muted-foreground">{stat.label}</div>
+                </div>
+              </div>
+            ))}
       </div>
 
       {/* Список документов */}
@@ -84,40 +102,56 @@ export default function DocumentsPage() {
             </tr>
           </thead>
           <tbody>
-            {documents.map((doc) => {
-              const s = statusMap[doc.status];
-              return (
-                <tr key={doc.id}>
-                  <td>
-                    <div className="flex items-center gap-2">
-                      <Icon name="FileText" size={16} className="text-[hsl(var(--primary))] flex-shrink-0" />
-                      <span className="text-sm font-medium">{doc.name}</span>
-                    </div>
-                  </td>
-                  <td className="text-muted-foreground text-sm">{doc.type}</td>
-                  <td className="text-muted-foreground text-sm">{doc.size}</td>
-                  <td className="text-muted-foreground text-sm">{doc.date}</td>
-                  <td>
-                    <span className={`${s.className} text-xs font-medium px-2.5 py-1 rounded-full flex items-center gap-1 w-fit`}>
-                      <Icon name={s.icon} size={12} />
-                      {s.label}
-                    </span>
-                  </td>
-                  <td>
-                    <div className="flex gap-2">
-                      <button className="text-[hsl(var(--gov-blue-light))] hover:underline text-xs flex items-center gap-1">
-                        <Icon name="Download" size={13} />
-                        Скачать
-                      </button>
-                      <button className="text-red-500 hover:underline text-xs flex items-center gap-1">
-                        <Icon name="Trash2" size={13} />
-                        Удалить
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
+            {loading
+              ? Array.from({ length: 4 }).map((_, i) => (
+                  <tr key={i}>
+                    <td>
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 bg-gray-200 rounded animate-pulse flex-shrink-0" />
+                        <div className="h-4 w-40 bg-gray-200 rounded animate-pulse" />
+                      </div>
+                    </td>
+                    <td><div className="h-4 w-28 bg-gray-200 rounded animate-pulse" /></td>
+                    <td><div className="h-4 w-14 bg-gray-200 rounded animate-pulse" /></td>
+                    <td><div className="h-4 w-20 bg-gray-200 rounded animate-pulse" /></td>
+                    <td><div className="h-5 w-24 bg-gray-200 rounded-full animate-pulse" /></td>
+                    <td><div className="h-4 w-28 bg-gray-200 rounded animate-pulse" /></td>
+                  </tr>
+                ))
+              : documents.map((doc) => {
+                  const s = statusMap[doc.status] ?? { label: doc.status, className: "bg-gray-100 text-gray-700", icon: "File" };
+                  return (
+                    <tr key={doc.id}>
+                      <td>
+                        <div className="flex items-center gap-2">
+                          <Icon name="FileText" size={16} className="text-[hsl(var(--primary))] flex-shrink-0" />
+                          <span className="text-sm font-medium">{doc.name}</span>
+                        </div>
+                      </td>
+                      <td className="text-muted-foreground text-sm">{doc.type}</td>
+                      <td className="text-muted-foreground text-sm">{doc.size_label}</td>
+                      <td className="text-muted-foreground text-sm">{doc.date}</td>
+                      <td>
+                        <span className={`${s.className} text-xs font-medium px-2.5 py-1 rounded-full flex items-center gap-1 w-fit`}>
+                          <Icon name={s.icon} size={12} />
+                          {s.label}
+                        </span>
+                      </td>
+                      <td>
+                        <div className="flex gap-2">
+                          <button className="text-[hsl(var(--gov-blue-light))] hover:underline text-xs flex items-center gap-1">
+                            <Icon name="Download" size={13} />
+                            Скачать
+                          </button>
+                          <button className="text-red-500 hover:underline text-xs flex items-center gap-1">
+                            <Icon name="Trash2" size={13} />
+                            Удалить
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
           </tbody>
         </table>
       </div>
