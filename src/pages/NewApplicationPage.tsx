@@ -1,22 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Icon from "@/components/ui/icon";
+import { api } from "@/lib/api";
 
-const applicationTypes = [
-  "Справка о регистрации по месту жительства",
-  "Выписка из Единого государственного реестра",
-  "Замена удостоверяющего документа",
-  "Справка об отсутствии судимости",
-  "Регистрация транспортного средства",
-  "Получение субсидии",
-  "Социальная льгота",
-  "Иное обращение",
-];
 
 interface NewApplicationPageProps {
   onNavigate: (page: string) => void;
 }
 
 export default function NewApplicationPage({ onNavigate }: NewApplicationPageProps) {
+  const [applicationTypes, setApplicationTypes] = useState<string[]>([]);
+  const [newId, setNewId] = useState("ЗАЯ-2026-...");
   const [step, setStep] = useState(1);
   const [form, setForm] = useState({
     type: "",
@@ -35,10 +28,23 @@ export default function NewApplicationPage({ onNavigate }: NewApplicationPagePro
   });
   const [submitted, setSubmitted] = useState(false);
 
+  useEffect(() => {
+    api.getApplicationTypes().then((types: string[]) => setApplicationTypes(types));
+  }, []);
+
   const update = (field: string, value: string | boolean) => setForm((f) => ({ ...f, [field]: value }));
 
   const handleSubmit = () => {
-    setSubmitted(true);
+    api.createApplication({
+      type: form.type,
+      description: form.description,
+      urgency: form.urgency,
+      citizen_id: 1,
+      citizen_name: `${form.lastName} ${form.firstName[0]}.${form.middleName[0]}.`,
+    }).then((res: { id?: string }) => {
+      if (res.id) setNewId(res.id);
+      setSubmitted(true);
+    });
   };
 
   if (submitted) {
@@ -51,7 +57,7 @@ export default function NewApplicationPage({ onNavigate }: NewApplicationPagePro
           <h2 className="text-2xl font-bold mb-2">Заявление подано!</h2>
           <p className="text-muted-foreground mb-2">Ваше заявление успешно зарегистрировано в системе.</p>
           <div className="inline-block bg-blue-50 rounded-lg px-4 py-2 mb-6">
-            <span className="font-mono font-bold text-[hsl(var(--primary))] text-lg">ЗАЯ-2026-00346</span>
+            <span className="font-mono font-bold text-[hsl(var(--primary))] text-lg">{newId}</span>
           </div>
           <p className="text-sm text-muted-foreground mb-6">
             Уведомление об изменении статуса придёт на {form.email}
