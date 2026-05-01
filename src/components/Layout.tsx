@@ -27,6 +27,9 @@ const adminNav = [
   { id: "dashboard", label: "Обзор", icon: "LayoutDashboard" },
   { id: "staff-panel", label: "Рабочий стол", icon: "Monitor" },
   { id: "applications", label: "Заявления", icon: "FileText" },
+  { id: "new-application", label: "Подать заявление", icon: "FilePlus" },
+  { id: "documents", label: "Документы", icon: "FolderOpen" },
+  { id: "notifications", label: "Уведомления", icon: "Bell" },
   { id: "user-management", label: "Пользователи", icon: "Users" },
   { id: "audit", label: "Журнал аудита", icon: "ClipboardList" },
 ];

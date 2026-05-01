@@ -14,8 +14,8 @@ type AppState = "login" | "2fa" | "app";
 type Role = "citizen" | "employee" | "admin";
 
 export default function Index() {
-  const [appState, setAppState] = useState<AppState>("login");
-  const [role, setRole] = useState<Role>("citizen");
+  const [appState, setAppState] = useState<AppState>("app");
+  const [role, setRole] = useState<Role>("admin");
   const [currentPage, setCurrentPage] = useState("dashboard");
 
   const handleLogin = (selectedRole: Role) => {
