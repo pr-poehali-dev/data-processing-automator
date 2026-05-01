@@ -29,7 +29,7 @@ const HOME: Record<Role, string> = {
 
 export default function Index() {
   const [appState, setAppState] = useState<AppState>("app");
-  const [role, setRole] = useState<Role>("admin");
+  const [role, setRole] = useState<Role>("citizen");
   const [currentPage, setCurrentPage] = useState("dashboard");
 
   const handleLogin = (selectedRole: Role) => {
