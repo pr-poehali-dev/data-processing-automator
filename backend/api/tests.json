@@ -1,0 +1,54 @@
+{
+  "tests": [
+    {
+      "name": "Список заявлений",
+      "method": "GET",
+      "path": "/applications",
+      "expectedStatus": 200,
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Список пользователей",
+      "method": "GET",
+      "path": "/users",
+      "expectedStatus": 200,
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Уведомления пользователя",
+      "method": "GET",
+      "path": "/notifications?user_id=1",
+      "expectedStatus": 200,
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Документы пользователя",
+      "method": "GET",
+      "path": "/documents?user_id=1",
+      "expectedStatus": 200,
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Журнал аудита",
+      "method": "GET",
+      "path": "/audit",
+      "expectedStatus": 200,
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Типы заявлений",
+      "method": "GET",
+      "path": "/application-types",
+      "expectedStatus": 200,
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Дашборд",
+      "method": "GET",
+      "path": "/dashboard?user_id=1",
+      "expectedStatus": 200,
+      "expectedBody": {"stats": {}},
+      "bodyMatcher": "partial"
+    }
+  ]
+}
